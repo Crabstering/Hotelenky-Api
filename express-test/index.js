@@ -11,17 +11,13 @@ mongoose.connect('mongodb://localhost/test');
 var db = mongoose.connection;
 db.on('error', console.error.bind(console, 'connection error:'));
 db.once('open', () => {})
-
-
 var cityHotelSchema = mongoose.Schema({ 
     name: String,
     hotels: [{
             name: String
     }]
 })
-
 var CityHotel = mongoose.model('CityHotel', cityHotelSchema);
-
 function saveCityHotel (city, hotel) {
     CityHotel.find({ name: city }, (err, cities) => {
         if (err) return console.error(err) 
@@ -31,7 +27,6 @@ function saveCityHotel (city, hotel) {
         })
     })
 }
-
 async function isCityInDb (city) {
     var result = false
     await CityHotel.find({ name: city }, (err, cities) => {
@@ -42,7 +37,6 @@ async function isCityInDb (city) {
     })
     return result
 }
-
 async function isHotelInDb (city, hotel) {
     var result = false
     await CityHotel.find({ name: city }, (err, cities) => {
@@ -55,7 +49,6 @@ async function isHotelInDb (city, hotel) {
     })
     return result
 }
-
 function logHotels() {
     CityHotel.find((err, cities) => {
         if (err) return console.error(err) 
@@ -98,7 +91,7 @@ app.get('/hotely', (req, res) => {
     const uuid = uuidv1()
     console.log(req.query)
     promises[uuid] = fetchAsync(url)
-	promises[uuid].then((json) => { 
+    promises[uuid].then((json) => { 
             var filteredData = json.hotels
             
             Object.keys(req.query).map((key) => {
@@ -112,10 +105,10 @@ app.get('/hotely', (req, res) => {
                 console.log(value.zoneCode)
             })
 
-			return json
-		})
-	console.log(JSON.stringify(promises))
-	res.json({result: "OK", uuid: uuid})
+            return json
+        })
+    console.log(JSON.stringify(promises))
+    res.json({result: "OK", uuid: uuid})
 })
 
 
@@ -125,7 +118,7 @@ app.get('/hotelymesta', (req, res) => {
     const uuid = uuidv1()
     console.log(req.query)
     promises[uuid] = fetchAsync(url)
-	promises[uuid].then((json) => { 
+    promises[uuid].then((json) => { 
             var filteredData = json.hotels
             
             Object.keys(req.query).map((key) => {
@@ -139,10 +132,10 @@ app.get('/hotelymesta', (req, res) => {
                 console.log(value.zoneCode)
             })
             console.log("done")
-			return json
-		})
-	console.log(JSON.stringify(promises))
-	res.json({result: "OK", uuid: uuid})
+            return json
+        })
+    console.log(JSON.stringify(promises))
+    res.json({result: "OK", uuid: uuid})
 })
 
 /*
@@ -185,7 +178,7 @@ app.get('/hotelyzmesta', (req, res) => {
     const uuid = uuidv1()
     console.log(req.query)
     promises[uuid] = fetchAsync(url)
-	promises[uuid].then((json) => { 
+    promises[uuid].then((json) => { 
         var hotel = json.hotels   
         hotel = hotel.filter((otherHotel) => {
             return otherHotel.name.content === req.query.hotelname                 
@@ -202,11 +195,11 @@ app.get('/hotelyzmesta', (req, res) => {
             console.log(value.city.content)
         })
         console.log("done")
-		return json
-	})
-	console.log(JSON.stringify(promises))
-	res.json({result: "OK", uuid: uuid})
+        return json
+    })
+    console.log(JSON.stringify(promises))
+    res.json({result: "OK", uuid: uuid})
 })
 
-
-app.listen(3000, () => console.log('Example app listening on port 3000!'))
+var port = process.env.PORT || 1337
+app.listen(port, () => console.log('Example app listening on port %d!', port))
