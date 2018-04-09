@@ -86,8 +86,8 @@ app.get('/', (req, res) => res.json({message: "Hello world!"}))
 
 // Fetchovani z hotelbeds api + aplikace vsech filteru
 // tests: ?filtery
-// priklad: ?countryCode=ES&&zoneCode=80
-app.get('/hotely', (req, res) => {
+// example: hotels?countryCode=ES&&zoneCode=80
+app.get('/hotels', (req, res) => {
     const uuid = uuidv1()
     console.log(req.query)
     promises[uuid] = fetchAsync(url)
@@ -104,17 +104,27 @@ app.get('/hotely', (req, res) => {
                 console.log(value.name)
                 console.log(value.zoneCode)
             })
+        
+            newJson = {hotels: []}
 
-            return json
+            filteredData.map((hotel) => {
+                newJson.hotels.push({name: hotel.name.content,
+                                     city: hotel.city.content,
+                                     coordinates: hotel.coordinates,
+                                     images: hotel.images})
+            })
+
+            return newJson
+        }).then((json) => {
+            res.json({result: "OK", json: json})
         })
-    console.log(JSON.stringify(promises))
-    res.json({result: "OK", uuid: uuid})
+    console.log(JSON.stringify(promises)) 
 })
 
 
 // Fetchovani z hotelbeds api + podle mesta
-// tests: ?city=\(mesto)
-app.get('/hotelymesta', (req, res) => {
+// tests: hotelsFromCity?city=\(city)
+app.get('/hotelsFromCity', (req, res) => {
     const uuid = uuidv1()
     console.log(req.query)
     promises[uuid] = fetchAsync(url)
@@ -140,8 +150,8 @@ app.get('/hotelymesta', (req, res) => {
 
 /*
 // Testovani mongoose
-// tests: ?city=\(mesto)&hotel=\(hotel)
-app.get('/nacistMestoAHotel', (req, res) => {
+// tests: dbtest?city=\(city)&hotel=\(hotel)
+app.get('/dbtest', (req, res) => {
     isCityInDb(req.query.city).then((isCityIn) => {
         if (isCityIn) { 
             isHotelInDb(req.query.city, req.query.hotel).then((isHotelIn) => {
@@ -173,8 +183,8 @@ app.get('/nacistMestoAHotel', (req, res) => {
 })*/
 
 // Nacist hotel a vsechny ostatni ze stejneho mesta
-// tests: ?hotelname=Astoria
-app.get('/hotelyzmesta', (req, res) => {
+// tests: nearbyHotels?hotelname=Astoria
+app.get('/nearbyHotels', (req, res) => {
     const uuid = uuidv1()
     console.log(req.query)
     promises[uuid] = fetchAsync(url)
