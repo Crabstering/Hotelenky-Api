@@ -88,9 +88,11 @@ async function fetchHotels (fetchUrl, returnJson, req) {
         var filteredData = json.hotels
         
         Object.keys(req.query).map((key) => {
-            filteredData = filteredData.filter((hotel) => {
-                return String(hotel[key]) === req.query[key] 
-            })
+            if (key != "to" && key != "from" && key != "countryCode") {
+                filteredData = filteredData.filter((hotel) => {
+                    return String(hotel[key]) === req.query[key] 
+                })
+            }
         })
         
         filteredData.map((hotel) => {
@@ -100,10 +102,6 @@ async function fetchHotels (fetchUrl, returnJson, req) {
                                  images: hotel.images})
         })
         
-        /*filteredData.map((value) => {
-            console.log(value.name)
-            console.log(value.zoneCode)
-        })*/ 
         return returnJson
     })
  }
@@ -115,13 +113,10 @@ async function waitForHotels (req) {
     var total = await fetchAsync(urlTotal + req.query.countryCode).then((json) => {
         return json.total
     })
-    console.log(total)
     
     for (var i = 1; i < total; i += 1000) {
         fetchUrl = url + req.query.countryCode + "&from=" + (i).toString() + "&to=" + (i+999).toString()
-        console.log(fetchUrl)
         resJson = await fetchHotels(fetchUrl, resJson, req)
-        console.log(resJson)
     } 
     return resJson
 }
@@ -132,8 +127,10 @@ app.get('/', (req, res) => res.json({message: "Hello world!"}))
 // tests: ?countryCode=\(countryCode)&filters
 // example: hotels?countryCode=ES&zoneCode=80
 app.get('/hotels', (req, res) => {
+    Object.keys(req.query).map((key) => {
+        console.log(key)
+    })
     waitForHotels(req).then((json) => {
-        console.log(json)
         res.json({result: "OK", json: json})
     })
 })
