@@ -60,7 +60,7 @@ function logHotels() {
 }*/
 
 var promises = {}
-var url = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?fields=all&language=ENG&useSecondaryLanguage=false&'
+var url = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?fields=all&language=ENG&useSecondaryLanguage=false&countryCode='
 var urlTotal = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?language=ENG&useSecondaryLanguage=false&from=1&to=1&countryCode='
 var testUrl = 'https://api.test.hotelbeds.com/hotel-api/1.0/status'
 
@@ -111,13 +111,15 @@ async function fetchHotels (fetchUrl, returnJson, req) {
 async function waitForHotels (req) {
     var fetchUrl = ""
     var resJson = {hotels: []}
+
     var total = await fetchAsync(urlTotal + req.query.countryCode).then((json) => {
         return json.total
     })
     console.log(total)
     
     for (var i = 1; i < total; i += 1000) {
-        fetchUrl = url + req.query.countryCode + "&from=" + toString(i) + "&to=" + toString(i+999)
+        fetchUrl = url + req.query.countryCode + "&from=" + (i).toString() + "&to=" + (i+999).toString()
+        console.log(fetchUrl)
         resJson = await fetchHotels(fetchUrl, resJson, req)
         console.log(resJson)
     } 
