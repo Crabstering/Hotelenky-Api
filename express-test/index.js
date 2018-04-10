@@ -60,7 +60,8 @@ function logHotels() {
 }*/
 
 var promises = {}
-var url = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?fields=all&language=ENG&from=125&to=250&useSecondaryLanguage=false'
+var url = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?fields=all&language=ENG&useSecondaryLanguage=false&'
+var urlTotal = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?language=ENG&useSecondaryLanguage=false&from=1&to=1&countryCode='
 var testUrl = 'https://api.test.hotelbeds.com/hotel-api/1.0/status'
 
 // Fetch z hotelbeds + auth
@@ -82,46 +83,60 @@ async function fetchAsync (newUrl) {
     }
   }
 
+async function fetchHotels (fetchUrl, returnJson, req) {
+    return fetchAsync(fetchUrl).then((json) => { 
+        var filteredData = json.hotels
+        
+        Object.keys(req.query).map((key) => {
+            filteredData = filteredData.filter((hotel) => {
+                return String(hotel[key]) === req.query[key] 
+            })
+        })
+        
+        filteredData.map((hotel) => {
+            returnJson.hotels.push({name: hotel.name.content,
+                                 city: hotel.city.content,
+                                 coordinates: hotel.coordinates,
+                                 images: hotel.images})
+        })
+        
+        /*filteredData.map((value) => {
+            console.log(value.name)
+            console.log(value.zoneCode)
+        })*/ 
+        return returnJson
+    })
+ }
+
+async function waitForHotels (req) {
+    var fetchUrl = ""
+    var resJson = {hotels: []}
+    var total = await fetchAsync(urlTotal + req.query.countryCode).then((json) => {
+        return json.total
+    })
+    console.log(total)
+    
+    for (var i = 1; i < total; i += 1000) {
+        fetchUrl = url + req.query.countryCode + "&from=" + toString(i) + "&to=" + toString(i+999)
+        resJson = await fetchHotels(fetchUrl, resJson, req)
+        console.log(resJson)
+    } 
+    return resJson
+}
+
 app.get('/', (req, res) => res.json({message: "Hello world!"}))
 
-// Fetchovani z hotelbeds api + aplikace vsech filteru
-// tests: ?filtery
-// example: hotels?countryCode=ES&&zoneCode=80
+// Fetchovani z hotelbeds api z dane country + aplikace vsech filteru
+// tests: ?countryCode=\(countryCode)&filters
+// example: hotels?countryCode=ES&zoneCode=80
 app.get('/hotels', (req, res) => {
-    const uuid = uuidv1()
-    console.log(req.query)
-    promises[uuid] = fetchAsync(url)
-    promises[uuid].then((json) => { 
-            var filteredData = json.hotels
-            
-            Object.keys(req.query).map((key) => {
-                filteredData = filteredData.filter((hotel) => {
-                    return String(hotel[key]) === req.query[key] 
-                })
-            })
-            
-            filteredData.map((value) => {
-                console.log(value.name)
-                console.log(value.zoneCode)
-            })
-        
-            newJson = {hotels: []}
-
-            filteredData.map((hotel) => {
-                newJson.hotels.push({name: hotel.name.content,
-                                     city: hotel.city.content,
-                                     coordinates: hotel.coordinates,
-                                     images: hotel.images})
-            })
-
-            return newJson
-        }).then((json) => {
-            res.json({result: "OK", json: json})
-        })
-    console.log(JSON.stringify(promises)) 
+    waitForHotels(req).then((json) => {
+        console.log(json)
+        res.json({result: "OK", json: json})
+    })
 })
 
-
+/*
 // Fetchovani z hotelbeds api + podle mesta
 // tests: hotelsFromCity?city=\(city)
 app.get('/hotelsFromCity', (req, res) => {
@@ -146,7 +161,7 @@ app.get('/hotelsFromCity', (req, res) => {
         })
     console.log(JSON.stringify(promises))
     res.json({result: "OK", uuid: uuid})
-})
+})*/
 
 /*
 // Testovani mongoose
@@ -182,6 +197,7 @@ app.get('/dbtest', (req, res) => {
     res.json({result: "OK"}) 
 })*/
 
+/*
 // Nacist hotel a vsechny ostatni ze stejneho mesta
 // tests: nearbyHotels?hotelname=Astoria
 app.get('/nearbyHotels', (req, res) => {
@@ -209,7 +225,7 @@ app.get('/nearbyHotels', (req, res) => {
     })
     console.log(JSON.stringify(promises))
     res.json({result: "OK", uuid: uuid})
-})
+})*/
 
 var port = process.env.PORT || 1337
 app.listen(port, () => console.log('Example app listening on port %d!', port))
