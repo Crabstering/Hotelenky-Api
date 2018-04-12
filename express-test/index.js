@@ -60,8 +60,8 @@ function logHotels() {
 }*/
 
 var promises = {}
-var url = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?fields=all&language=ENG&useSecondaryLanguage=false&countryCode='
-var urlTotal = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?language=ENG&useSecondaryLanguage=false&from=1&to=1&countryCode='
+var url = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?fields=name,countryCode,city,images,coordinates&language=ENG&useSecondaryLanguage=false&countryCode='
+
 var testUrl = 'https://api.test.hotelbeds.com/hotel-api/1.0/status'
 
 // Fetch z hotelbeds + auth
@@ -94,28 +94,49 @@ async function fetchHotels (fetchUrl, returnJson, req) {
                 })
             }
         })
-        
+        /*
         filteredData.map((hotel) => {
             returnJson.hotels.push({name: hotel.name.content,
                                  city: hotel.city.content,
                                  coordinates: hotel.coordinates,
                                  images: hotel.images})
         })
-        
-        return returnJson
+        */
+        return filteredData
     })
- }
+}
+
+async function fetchTotal (req) {
+    var urlTotal = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?language=ENG&useSecondaryLanguage=false&from=1&to=1&countryCode='
+    return fetchAsync(urlTotal + req.query.countryCode).then((json) => {
+        return json.total
+    })
+}
 
 async function waitForHotels (req) {
     var fetchUrl = ""
     var resJson = {hotels: []}
+    var from = 1
+    var to = 0
 
-    var total = await fetchAsync(urlTotal + req.query.countryCode).then((json) => {
-        return json.total
+    to = await fetchTotal(req)
+
+    Object.keys(req.query).map((key) => {
+        if (key == "from") {
+            from = parseInt(req.query[key])
+        } else if (key == "to") {
+            to = parseInt(req.query[key])
+        }
     })
-    
-    for (var i = 1; i < total; i += 1000) {
-        fetchUrl = url + req.query.countryCode + "&from=" + (i).toString() + "&to=" + (i+999).toString()
+
+    var high = 0
+    for (var i = from; i < to; i += 1000) {
+        if (to - i < 1000 ) {
+            high = to
+        } else {
+            high = i + 999
+        }
+        fetchUrl = url + req.query.countryCode + "&from=" + (i).toString() + "&to=" + (high).toString()
         resJson = await fetchHotels(fetchUrl, resJson, req)
     } 
     return resJson
@@ -125,7 +146,7 @@ app.get('/', (req, res) => res.json({message: "Hello world!"}))
 
 // Fetchovani z hotelbeds api z dane country + aplikace vsech filteru
 // tests: ?countryCode=\(countryCode)&filters
-// example: hotels?countryCode=ES&zoneCode=80
+// example: hotels?countryCode=CZ&zoneCode=
 app.get('/hotels', (req, res) => {
     Object.keys(req.query).map((key) => {
         console.log(key)
