@@ -146,7 +146,7 @@ app.get('/', (req, res) => res.json({message: "Hello world!"}))
 
 // Fetchovani z hotelbeds api z dane country + aplikace vsech filteru
 // tests: ?countryCode=\(countryCode)&filters
-// example: hotels?countryCode=CZ&zoneCode=
+// example: hotels?countryCode=CZ&from=1&to=20
 app.get('/hotels', (req, res) => {
     Object.keys(req.query).map((key) => {
         console.log(key)
