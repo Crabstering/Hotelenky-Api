@@ -177,9 +177,9 @@ app.get('/hotels', (req, res) => {
 })
 
 
-// Fetchovani daneho hotelu z dane country + nalezeni vsech hotelu v danem okruhu
+// Fetchovani daneho hotelu z dane country + nalezeni vsech hotelu v danem okruhu v km
 // tests: ?countryCode=\(countryCode)&name=\(countryCode)&radius=\(radius)
-// example: hotels?countryCode=CZ&name=PRAGUE
+// example: hotels?countryCode=CZ&name=PRAGUE&name=Jalta&radius=1
 app.get('/hotelsByArea', (req, res) => {
     var before = new Date().getTime()
     var uuid = ""
