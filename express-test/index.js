@@ -60,8 +60,8 @@ function logHotels() {
 }*/
 
 var promises = {}
+var fetchedCountriesUuid = {}
 var url = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?fields=name,countryCode,city,images,coordinates&language=ENG&useSecondaryLanguage=false&countryCode='
-
 var testUrl = 'https://api.test.hotelbeds.com/hotel-api/1.0/status'
 
 // Fetch z hotelbeds + auth
@@ -83,29 +83,25 @@ async function fetchAsync (newUrl) {
     }
   }
 
-async function fetchHotels (fetchUrl, returnJson, req) {
-    return fetchAsync(fetchUrl).then((json) => { 
-        var filteredData = json.hotels
-        
-        Object.keys(req.query).map((key) => {
-            if (key != "to" && key != "from" && key != "countryCode") {
+function filterHotels (json, req) {
+    var filteredData = json.hotels
+    Object.keys(req.query).map((key) => {
+        if (key != "to" && key != "from" && key != "countryCode") {
+            if (key == "city") {
+                filteredData = filteredData.filter((hotel) => {
+                    return String(hotel.city.content) === req.query.city
+                })
+            } else {
                 filteredData = filteredData.filter((hotel) => {
                     return String(hotel[key]) === req.query[key] 
                 })
             }
-        })
-        /*
-        filteredData.map((hotel) => {
-            returnJson.hotels.push({name: hotel.name.content,
-                                 city: hotel.city.content,
-                                 coordinates: hotel.coordinates,
-                                 images: hotel.images})
-        })
-        */
-        return filteredData
+        }
     })
+    return filteredData
 }
 
+/* fetch po castech, je to pomaly
 async function fetchTotal (req) {
     var urlTotal = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?language=ENG&useSecondaryLanguage=false&from=1&to=1&countryCode='
     return fetchAsync(urlTotal + req.query.countryCode).then((json) => {
@@ -140,19 +136,30 @@ async function waitForHotels (req) {
         resJson = await fetchHotels(fetchUrl, resJson, req)
     } 
     return resJson
-}
+}*/
 
 app.get('/', (req, res) => res.json({message: "Hello world!"}))
 
 // Fetchovani z hotelbeds api z dane country + aplikace vsech filteru
 // tests: ?countryCode=\(countryCode)&filters
-// example: hotels?countryCode=CZ&from=1&to=20
+// example: hotels?countryCode=CZ&city=PRAGUE
 app.get('/hotels', (req, res) => {
-    Object.keys(req.query).map((key) => {
-        console.log(key)
-    })
-    waitForHotels(req).then((json) => {
-        res.json({result: "OK", json: json})
+    var before = new Date().getTime()
+    var uuid = ""
+    console.log(Object.keys(fetchedCountriesUuid))
+    console.log(req.query.countryCode)
+    if (req.query.countryCode in fetchedCountriesUuid) {
+        uuid = fetchedCountriesUuid[req.query.countryCode]
+    } else {
+        uuid = uuidv1()
+        promises[uuid] = fetchAsync(url + req.query.countryCode)
+        fetchedCountriesUuid[req.query.countryCode] = uuid
+    }
+    promises[uuid].then((json) => {
+        var filteredData = filterHotels(json, req)
+        timeLength = new Date().getTime() - before
+        console.log(timeLength)
+        res.json({result: "OK", timeLengthInMs: timeLength, uuid: uuid, json: filteredData})
     })
 })
 
