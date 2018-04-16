@@ -101,6 +101,20 @@ function filterHotels (json, req) {
     return filteredData
 }
 
+function findHotel(json, req) {
+    return json.hotels.filter((hotel) => {
+        return hotel.name.content == req.query.name
+    }) 
+}
+
+function findHotelsByArea(json, coordinates, radius) {
+    return json.hotels.filter((hotel) => {
+        longitudeDif = hotel.coordinates.longitude - coordinates.longitude
+        latituteDif = hotel.coordinates.latitude - coordinates.latitude
+        return Math.hypot(longitudeDif, latituteDif) <= radius
+    })
+}
+
 /* fetch po castech, je to pomaly
 async function fetchTotal (req) {
     var urlTotal = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?language=ENG&useSecondaryLanguage=false&from=1&to=1&countryCode='
@@ -140,14 +154,13 @@ async function waitForHotels (req) {
 
 app.get('/', (req, res) => res.json({message: "Hello world!"}))
 
-// Fetchovani z hotelbeds api z dane country + aplikace vsech filteru
+// Fetchovani z dane country + aplikace vsech filteru
 // tests: ?countryCode=\(countryCode)&filters
 // example: hotels?countryCode=CZ&city=PRAGUE
 app.get('/hotels', (req, res) => {
     var before = new Date().getTime()
     var uuid = ""
-    console.log(Object.keys(fetchedCountriesUuid))
-    console.log(req.query.countryCode)
+
     if (req.query.countryCode in fetchedCountriesUuid) {
         uuid = fetchedCountriesUuid[req.query.countryCode]
     } else {
@@ -160,6 +173,31 @@ app.get('/hotels', (req, res) => {
         timeLength = new Date().getTime() - before
         console.log(timeLength)
         res.json({result: "OK", timeLengthInMs: timeLength, uuid: uuid, json: filteredData})
+    })
+})
+
+
+// Fetchovani daneho hotelu z dane country + nalezeni vsech hotelu v danem okruhu
+// tests: ?countryCode=\(countryCode)&name=\(countryCode)&radius=\(radius)
+// example: hotels?countryCode=CZ&name=PRAGUE
+app.get('/hotelsByArea', (req, res) => {
+    var before = new Date().getTime()
+    var uuid = ""
+
+    if (req.query.countryCode in fetchedCountriesUuid) {
+        uuid = fetchedCountriesUuid[req.query.countryCode]
+    } else {
+        uuid = uuidv1()
+        promises[uuid] = fetchAsync(url + req.query.countryCode)
+        fetchedCountriesUuid[req.query.countryCode] = uuid
+    }
+    promises[uuid].then((json) => {
+        var coordinates = findHotel(json, req)
+        coordinates = coordinates[0].coordinates
+        radius = 360 / 40000 * parseInt(req.query.radius) // Prepocitani vzdalenosti souradnic z kilometru
+        var hotelsByArea = findHotelsByArea(json, coordinates, radius)
+        timeLength = new Date().getTime() - before
+        res.json({result: "OK", timeLengthInMs: timeLength, uuid: uuid, json: hotelsByArea})
     })
 })
 
