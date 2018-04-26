@@ -61,7 +61,7 @@ function logHotels() {
 
 var promises = {}
 var fetchedCountriesUuid = {}
-var url = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?fields=name,countryCode,city,images,coordinates&language=ENG&useSecondaryLanguage=false&countryCode='
+var url = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?fields=name,countryCode,city,coordinates&language=ENG&useSecondaryLanguage=false&countryCode='
 var testUrl = 'https://api.test.hotelbeds.com/hotel-api/1.0/status'
 
 // Fetch z hotelbeds + auth
@@ -115,7 +115,7 @@ function findHotelsByArea(json, coordinates, radius) {
     })
 }
 
-/* fetch po castech, je to pomaly
+// fetch po castech, je to pomaly
 async function fetchTotal (req) {
     var urlTotal = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?language=ENG&useSecondaryLanguage=false&from=1&to=1&countryCode='
     return fetchAsync(urlTotal + req.query.countryCode).then((json) => {
@@ -125,11 +125,9 @@ async function fetchTotal (req) {
 
 async function waitForHotels (req) {
     var fetchUrl = ""
-    var resJson = {hotels: []}
+    var resJson = []
     var from = 1
-    var to = 0
-
-    to = await fetchTotal(req)
+    var to = await fetchTotal(req)
 
     Object.keys(req.query).map((key) => {
         if (key == "from") {
@@ -147,10 +145,14 @@ async function waitForHotels (req) {
             high = i + 999
         }
         fetchUrl = url + req.query.countryCode + "&from=" + (i).toString() + "&to=" + (high).toString()
-        resJson = await fetchHotels(fetchUrl, resJson, req)
+        console.log(fetchUrl)
+        var newJson = await fetchAsync(fetchUrl)
+        console.log(newJson)
+        resJson = resJson.concat(newJson.hotels)
+        console.log(resJson)
     } 
     return resJson
-}*/
+}
 
 app.get('/', (req, res) => res.json({message: "Hello world!"}))
 
@@ -165,21 +167,21 @@ app.get('/hotels', (req, res) => {
         uuid = fetchedCountriesUuid[req.query.countryCode]
     } else {
         uuid = uuidv1()
-        promises[uuid] = fetchAsync(url + req.query.countryCode)
+        promises[uuid] = waitForHotels(req)
         fetchedCountriesUuid[req.query.countryCode] = uuid
     }
     promises[uuid].then((json) => {
         var filteredData = filterHotels(json, req)
         timeLength = new Date().getTime() - before
         console.log(timeLength)
-        res.json({result: "OK", timeLengthInMs: timeLength, uuid: uuid, json: filteredData})
+        res.json({result: "OK", timeLengthInMs: timeLength, uuid: uuid, json: json})
     })
 })
 
 
 // Fetchovani daneho hotelu z dane country + nalezeni vsech hotelu v danem okruhu v km
 // tests: ?countryCode=\(countryCode)&name=\(countryCode)&radius=\(radius)
-// example: hotels?countryCode=CZ&name=PRAGUE&name=Jalta&radius=1
+// example: hotelsByArea?countryCode=CZ&name=PRAGUE&name=Jalta&radius=1
 app.get('/hotelsByArea', (req, res) => {
     var before = new Date().getTime()
     var uuid = ""
@@ -188,7 +190,7 @@ app.get('/hotelsByArea', (req, res) => {
         uuid = fetchedCountriesUuid[req.query.countryCode]
     } else {
         uuid = uuidv1()
-        promises[uuid] = fetchAsync(url + req.query.countryCode)
+        promises[uuid] = waitForHotels(req)
         fetchedCountriesUuid[req.query.countryCode] = uuid
     }
     promises[uuid].then((json) => {
@@ -200,33 +202,6 @@ app.get('/hotelsByArea', (req, res) => {
         res.json({result: "OK", timeLengthInMs: timeLength, uuid: uuid, json: hotelsByArea})
     })
 })
-
-/*
-// Fetchovani z hotelbeds api + podle mesta
-// tests: hotelsFromCity?city=\(city)
-app.get('/hotelsFromCity', (req, res) => {
-    const uuid = uuidv1()
-    console.log(req.query)
-    promises[uuid] = fetchAsync(url)
-    promises[uuid].then((json) => { 
-            var filteredData = json.hotels
-            
-            Object.keys(req.query).map((key) => {
-                filteredData = filteredData.filter((hotel) => {
-                    return hotel.city[key] === req.query[key] 
-                })
-            })
-            
-            filteredData.map((value) => {
-                console.log(value.name)
-                console.log(value.zoneCode)
-            })
-            console.log("done")
-            return json
-        })
-    console.log(JSON.stringify(promises))
-    res.json({result: "OK", uuid: uuid})
-})*/
 
 /*
 // Testovani mongoose
