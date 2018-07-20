@@ -68,7 +68,7 @@ async function saveHotel (hotel) {
                 otherCity.hotels.push({ name: hotel.name.content,
                                         city: hotel.city.content,
                                         code: hotel.code ,
-                                        image: hotel.images[0].path,
+                                        image: hotel.images != null ? hotel.images[0].path : "",
                                         coordinates: hotel.coordinates })
                 return true
             }
@@ -80,7 +80,7 @@ async function saveHotel (hotel) {
                                                 name: hotel.name.content,
                                                 city: hotel.city.content,
                                                 code: hotel.code ,
-                                                image: hotel.images[0].path,
+                                                image: hotel.images != null ? hotel.images[0].path : "",
                                                 coordinates: hotel.coordinates  }] })
         }
         return countryInList[0].save().then(() => {
@@ -95,7 +95,6 @@ async function sequenceAdd(promise, arg1, otherPromise) {
     })
 }
 
-// Masterpiece
 async function saveAllHotels(hotels) {
     promises = []
     for (var i = 0; i < hotels.length; i += 1) {
@@ -164,7 +163,7 @@ async function fetchAsync (newUrl) {
     }
 }
 
-function filterHotels (json, req) {
+/*function filterHotels (json, req) {
     var filteredData = json.hotels
     Object.keys(req.query).map((key) => {
         if (key != "to" && key != "from" && key != "countryCode") {
@@ -194,7 +193,7 @@ function findHotelsByArea(json, coordinates, radius) {
         latituteDif = hotel.coordinates.latitude - coordinates.latitude
         return Math.hypot(longitudeDif, latituteDif) <= radius
     })
-}
+}*/
 
 // Zjisteni, kolik hotelu je v dane zemi
 async function fetchTotal (req) {
@@ -202,6 +201,10 @@ async function fetchTotal (req) {
     return fetchAsync(urlTotal + req.query.countryCode).then((json) => {
         return json.total
     })
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function waitForHotels (req) {
@@ -232,6 +235,7 @@ async function waitForHotels (req) {
         fetchUrl = url + req.query.countryCode + "&from=" + (i).toString() + "&to=" + (high).toString()
         console.log(fetchUrl)
         var newJson = await fetchAsync(fetchUrl)
+        await sleep(500);  // pro jistotu
         resJson = resJson.concat(newJson.hotels)
     } 
     return resJson
