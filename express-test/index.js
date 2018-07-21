@@ -12,6 +12,7 @@ db.once('open', () => {})
 
 
 var countryHotelsSchema = mongoose.Schema({
+    allSaved: Boolean,
     countryCode: String,
     cities: [{
         name: String,
@@ -53,6 +54,7 @@ async function isHotelInDb (country, city, hotel) {
 
 async function saveCountry (countryCode) {
     var newCountry = new CountryHotel({ 
+        allSaved: false,
         countryCode: countryCode, 
         cities: []
     })
@@ -89,6 +91,15 @@ async function saveHotel (hotel) {
     })
 }
 
+async function checkCountry(countryCode) {
+    return CountryHotel.find({ countryCode: countryCode }).exec().then((countryInList) => {
+        countryInList[0].allSaved = true
+        return countryInList[0].save().then(() => {
+            console.log("All hotels has been saved")
+        })
+    })
+}
+
 async function sequenceAdd(promise, arg1, otherPromise) {
     return promise.then(() => {
         return otherPromise(arg1)
@@ -109,8 +120,40 @@ async function saveAllHotels(hotels) {
             }
         }
     }).then(() => {
-        return promises[0]
+        return promises[0].then(() => {
+            return checkCountry(hotels[0].countryCode)
+        })
     })
+}
+
+function transformFetchedHotels(hotels) {
+    resultHotels = { 
+        cities: [],
+        countryCode: hotels[0].countryCode
+    }
+    hotels.map((hotel) => {
+        isCity = resultHotels.cities.some((city) => {
+            if (city.name == hotel.city.name) {
+                city.hotels.push({ name: hotel.name.content,
+                                         city: hotel.city.content,
+                                         code: hotel.code,
+                                         image: hotel.images != null ? hotel.images[0].path : "",
+                                         coordinates: hotel.coordinates })
+                return true
+            }
+            return false
+        })
+        if (!isCity) {
+            resultHotels.cities.push({ name: hotel.city.content,
+                                       hotels: [{ 
+                                           name: hotel.name.content,
+                                           city: hotel.city.content,
+                                           code: hotel.code,
+                                           image: hotel.images != null ? hotel.images[0].path : "",
+                                           coordinates: hotel.coordinates  }] }) 
+        }
+    })
+    return resultHotels
 }
 
 async function saveAll(hotels) {
@@ -141,6 +184,12 @@ var promises = {}
 var fetchedCountriesUuid = {}
 var url = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?fields=name,countryCode,city,coordinates,images&language=ENG&useSecondaryLanguage=false&countryCode='
 var testUrl = 'https://api.test.hotelbeds.com/hotel-api/1.0/status'
+
+/*
+Refaktornout to cely
+Returnovat response co nejrychleji
+Returnovat fetch a pokud uz je v databazi, tak databazi
+*/
 
 // Fetch z hotelbeds + auth
 async function fetchAsync (newUrl) {
@@ -253,22 +302,25 @@ app.get('/', (req, res) => res.json({message: "Hello world!"}))
 //          hotels?countryCode=CZ - fetch vseho
 app.get('/hotels', (req, res) => {
     var before = new Date().getTime()
-
     isCountryInDb(req.query.countryCode).then((isCountry) => {
         if (isCountry) {
             CountryHotel.find({ countryCode: req.query.countryCode }).exec().then((countryInList) => {
                 console.log("Zeme uz je v db")
                 timeLength = new Date().getTime() - before
-                res.json({result: "OK", timeLengthInMs: timeLength, json: countryInList[0]})
+                if (!countryInList[0].allSaved) {
+                    waitForHotels(req).then((json) => {
+                        timeLength = new Date().getTime() - before
+                        res.json({result: "OK", timeLengthInMs: timeLength, json: transformFetchedHotels(json)})
+                    })
+                } else {
+                    res.json({result: "OK", timeLengthInMs: timeLength, json: countryInList[0]})
+                }
             })
         } else {
             waitForHotels(req).then((json) => {
-                saveAll(json).then(() => {
-                    CountryHotel.find({ countryCode: req.query.countryCode }).exec().then((countryInList) => {
-                        timeLength = new Date().getTime() - before
-                        res.json({result: "OK", timeLengthInMs: timeLength, json: countryInList[0]})
-                    })
-                })
+                saveAll(json)
+                timeLength = new Date().getTime() - before
+                res.json({result: "OK", timeLengthInMs: timeLength, json: transformFetchedHotels(json)})
             })
         }
     })
