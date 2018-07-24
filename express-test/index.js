@@ -63,6 +63,7 @@ async function saveCountry (countryCode) {
     })
 }
 
+// Ulozi hotel do databaze, pokud poli mest je mesto, ve kterem se hotel nachazi, ulozi se do pole hotelu daneho mesta
 async function saveHotel (hotel) {
     return CountryHotel.find({ countryCode: hotel.countryCode }).exec().then((countryInList) => {
         saved = countryInList[0].cities.some((otherCity) => {
@@ -91,6 +92,7 @@ async function saveHotel (hotel) {
     })
 }
 
+// Ukladani hotelu do db trva a tato funkce vraci true, pokud byly vsechny hotelu z dane zeme ulozeny do db
 async function checkCountry(countryCode) {
     return CountryHotel.find({ countryCode: countryCode }).exec().then((countryInList) => {
         countryInList[0].allSaved = true
@@ -100,12 +102,14 @@ async function checkCountry(countryCode) {
     })
 }
 
+// Sekvencni pripojovani promises
 async function sequenceAdd(promise, arg1, otherPromise) {
     return promise.then(() => {
         return otherPromise(arg1)
     })
 }
 
+// Nejdrive zjisti, zda dany hotel se v db nachazi a pokud ne, hotel zde ulozi
 async function saveAllHotels(hotels) {
     promises = []
     for (var i = 0; i < hotels.length; i += 1) {
@@ -126,6 +130,7 @@ async function saveAllHotels(hotels) {
     })
 }
 
+// Transformace hotelu z fetche na stejny format jako je v databazi
 function transformFetchedHotels(hotels) {
     resultHotels = { 
         cities: [],
@@ -192,9 +197,9 @@ Returnovat fetch a pokud uz je v databazi, tak databazi
 */
 
 // Fetch z hotelbeds + auth
-async function fetchAsync (newUrl) {
+async function fetchAsync (newUrl, res) {
     try {
-        let response = await fetch(newUrl, { 
+        return fetch(newUrl, { 
             method: 'get', 
             headers: {
               // Pozice headeru je jedno
@@ -202,11 +207,14 @@ async function fetchAsync (newUrl) {
               'Api-Key': 'dr52c6czspgvrh3669hq4xtr',
               'X-Signature': sha256('dr52c6czspgvrh3669hq4xtr' + '6mAFnjcqRK' + Math.floor(Date.now() / 1000))
             }
+        }).then((fetchedData) => {
+            if (fetchedData.status != 200) {
+                res.json({ result: "NOK", reason: fetchedData.statusText })
+                return null
+            }
+            //Ma to problem asi s tim, ze fetchedData jsou obcas undefined, ale jen mozna
+            return fetchedData.json()
         })
-        // Udelat zde kontrolu, jestli jsem nepresahl denni limit requestu
-        //console.log(response)
-        let responseJson = await response.json()
-        return responseJson
     } catch(error) {
         console.error(error)
     }
@@ -245,18 +253,20 @@ function findHotelsByArea(json, coordinates, radius) {
 }*/
 
 // Zjisteni, kolik hotelu je v dane zemi
-async function fetchTotal (req) {
+async function fetchTotal (req, res) {
     var urlTotal = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?language=ENG&useSecondaryLanguage=false&from=1&to=1&countryCode='
-    return fetchAsync(urlTotal + req.query.countryCode).then((json) => {
+    return fetchAsync(urlTotal + req.query.countryCode, res).then((json) => {
+        if (json == null) return null
         return json.total
     })
 }
 
 function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForHotels (req) {
+// Fetch vsech hotelu z dane zeme po tisicovkach, ci min
+async function waitForHotels (req, res) {
     var fetchUrl = ""
     var resJson = []
     var from = 1
@@ -271,8 +281,10 @@ async function waitForHotels (req) {
     })
 
     if (to == 0) {
-        to = await fetchTotal(req)
+        to = await fetchTotal(req, res)
+        if (to == null) return null  
     }
+
 
     var high = 0
     for (var i = from; i < to; i += 1000) {
@@ -284,6 +296,7 @@ async function waitForHotels (req) {
         fetchUrl = url + req.query.countryCode + "&from=" + (i).toString() + "&to=" + (high).toString()
         console.log(fetchUrl)
         var newJson = await fetchAsync(fetchUrl)
+        if (newJson == null) return null
         await sleep(500);  // pro jistotu
         resJson = resJson.concat(newJson.hotels)
     } 
@@ -305,19 +318,20 @@ app.get('/hotels', (req, res) => {
     isCountryInDb(req.query.countryCode).then((isCountry) => {
         if (isCountry) {
             CountryHotel.find({ countryCode: req.query.countryCode }).exec().then((countryInList) => {
-                console.log("Zeme uz je v db")
-                timeLength = new Date().getTime() - before
                 if (!countryInList[0].allSaved) {
-                    waitForHotels(req).then((json) => {
+                    waitForHotels(req, res).then((json) => {
+                        if (json == null) return
                         timeLength = new Date().getTime() - before
                         res.json({result: "OK", timeLengthInMs: timeLength, json: transformFetchedHotels(json)})
                     })
                 } else {
+                    timeLength = new Date().getTime() - before
                     res.json({result: "OK", timeLengthInMs: timeLength, json: countryInList[0]})
                 }
             })
         } else {
-            waitForHotels(req).then((json) => {
+            waitForHotels(req, res).then((json) => {
+                if (json == null) return
                 saveAll(json)
                 timeLength = new Date().getTime() - before
                 res.json({result: "OK", timeLengthInMs: timeLength, json: transformFetchedHotels(json)})
