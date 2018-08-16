@@ -64,7 +64,7 @@ async function saveCountry (countryCode) {
 }
 
 // Ulozi hotel do databaze, pokud poli mest je mesto, ve kterem se hotel nachazi, ulozi se do pole hotelu daneho mesta
-async function saveHotel (hotel) {
+/*async function saveHotel (hotel) {
     return CountryHotel.find({ countryCode: hotel.countryCode }).exec().then((countryInList) => {
         saved = countryInList[0].cities.some((otherCity) => {
             if (otherCity.name == hotel.city.content) {
@@ -90,6 +90,30 @@ async function saveHotel (hotel) {
             console.log("Hotel " + hotel.name.content + " pridan do db")
         })  
     })
+}*/
+
+function saveHotel (hotel, countryHotel) {
+    saved = countryHotel.cities.some((otherCity) => {
+        if (otherCity.name == hotel.city.content) {
+            otherCity.hotels.push({ name: hotel.name.content,
+                                    city: hotel.city.content,
+                                    code: hotel.code ,
+                                    image: hotel.images != null ? hotel.images[0].path : "",
+                                    coordinates: hotel.coordinates })
+            return true
+        }
+        return false
+    })
+    if (!saved) {
+        countryHotel.cities.push({ name: hotel.city.content,
+                                        hotels: [{ 
+                                            name: hotel.name.content,
+                                            city: hotel.city.content,
+                                            code: hotel.code ,
+                                            image: hotel.images != null ? hotel.images[0].path : "",
+                                            coordinates: hotel.coordinates  }] })
+    }
+    console.log("Hotel " + hotel.name.content + " pridan do db")  
 }
 
 // Ukladani hotelu do db trva a tato funkce vraci true, pokud byly vsechny hotelu z dane zeme ulozeny do db
@@ -110,7 +134,7 @@ async function sequenceAdd(promise, arg1, otherPromise) {
 }
 
 // Nejdrive zjisti, zda dany hotel se v db nachazi a pokud ne, hotel zde ulozi
-async function saveAllHotels(hotels) {
+/*async function saveAllHotels(hotels) {
     promises = []
     for (var i = 0; i < hotels.length; i += 1) {
         promises.push(isHotelInDb(hotels[i].countryCode, hotels[i].city.content, hotels[i].name.content))
@@ -127,6 +151,20 @@ async function saveAllHotels(hotels) {
         return promises[0].then(() => {
             return checkCountry(hotels[0].countryCode)
         })
+    })
+}*/
+
+async function saveAllHotels(hotels) {
+    promise = Promise.all([])
+
+    return CountryHotel.find({ countryCode: hotels[0].countryCode }).exec().then((countryInList) => {
+        for (var j = 0; j < hotels.length; j += 1) {
+            saveHotel(hotels[j], countryInList[0])
+        }
+
+        return countryInList[0].save().then(() => {
+            return checkCountry(hotels[0].countryCode)
+        }) 
     })
 }
 
