@@ -1,5 +1,7 @@
 const fetch = require('isomorphic-unfetch')
 
+const sleep = require('./utils').sleep
+
 var url = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?fields=name,countryCode,city,coordinates,images&language=ENG&useSecondaryLanguage=false&countryCode='
 
 // Fetch z hotelbeds + auth
@@ -67,10 +69,6 @@ async function fetchTotal (req, res) {
         if (json == null) return null
         return json.total
     })
-}
-
-function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // Fetch vsech hotelu z dane zeme po tisicovkach, ci min

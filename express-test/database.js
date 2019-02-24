@@ -1,5 +1,7 @@
 const mongoose = require('mongoose')
 
+const sequenceAdd = require('./utils').sequenceAdd
+
 var countryHotelsSchema = mongoose.Schema({
     allSaved: Boolean,
     countryCode: String,
@@ -92,13 +94,6 @@ async function checkCountry(countryCode) {
         return countryInList[0].save().then(() => {
             console.log("All hotels has been saved")
         })
-    })
-}
-
-// Sekvencni pripojovani promises
-async function sequenceAdd(promise, arg1, arg2, otherPromise) {
-    return promise.then(() => {
-        return otherPromise(arg1, arg2)
     })
 }
 
