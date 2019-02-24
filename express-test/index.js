@@ -1,36 +1,39 @@
 const express = require('express')
 const uuidv1 = require('uuid/v1')
-const fetch = require('isomorphic-unfetch')
+//const fetch = require('isomorphic-unfetch')
 const sha256 = require('js-sha256')
 const mongoose = require('mongoose')
+const fs = require('fs')
 
 
-mongoose.connect('mongodb://localhost/test');
+const file = require('./file')
+const database = require('./database')
+const fetch = require('./fetch')
+
+/*mongoose.connect('mongodb://localhost/test');
 var db = mongoose.connection;
 db.on('error', console.error.bind(console, 'connection error:'));
-db.once('open', () => {})
+db.once('open', () => {})*/
 
 
-var countryHotelsSchema = mongoose.Schema({
-    allSaved: Boolean,
-    countryCode: String,
-    cities: [{
+/*var geonamesSchema = mongoose.Schema({
+    country_code: String,
+    geonames: [{
+        geonameid: Number,
         name: String,
-        hotels: [{
-            name: String,
-            city: String,
-            code: Number,
-            image: String,
-            coordinates: {
-                longitude: Number,
-                latitude: Number
-            }
-        }]
+        asciiname: String,
+        alternatenames: [],
+        latitude: Number,
+        longitude: Number,
+        country_code: String,
+        admin_code1: String,
+        admin_code2: String
     }]
-})
+})*/
 
-var CountryHotel = mongoose.model('CountryHotel', countryHotelsSchema)
-
+//var CountryHotel = mongoose.model('CountryHotel', countryHotelsSchema)
+//var Geonames = mongoose.model('Geonames', geonamesSchema)
+/*
 async function isCountryInDb (countryCode) {
     return CountryHotel.find({ countryCode: countryCode }).exec().then((countryInList) => {
         if (!countryInList.length) return false
@@ -56,12 +59,12 @@ async function saveCountry (countryCode) {
     var newCountry = new CountryHotel({ 
         allSaved: false,
         countryCode: countryCode, 
-        cities: []
+        regions: []
     })
     return newCountry.save().then(() => {
         console.log("Zeme " + countryCode + " pridana do db")
     })
-}
+}*/
 
 // Ulozi hotel do databaze, pokud poli mest je mesto, ve kterem se hotel nachazi, ulozi se do pole hotelu daneho mesta
 /*async function saveHotel (hotel) {
@@ -91,8 +94,11 @@ async function saveCountry (countryCode) {
         })  
     })
 }*/
-
+/*
 function saveHotel (hotel, countryHotel) {
+    region = await fetchAsyncGeo(geourl + "&lat=" + hotel.coordinates.latitude + "&lon=" + hotel.coordinates.longitude).then((data) => {
+        return data.adminName1
+    })
     saved = countryHotel.cities.some((otherCity) => {
         if (otherCity.name == hotel.city.content) {
             otherCity.hotels.push({ name: hotel.name.content,
@@ -114,6 +120,34 @@ function saveHotel (hotel, countryHotel) {
                                             coordinates: hotel.coordinates  }] })
     }
     console.log("Hotel " + hotel.name.content + " pridan do db")  
+}*/
+
+/*async function saveHotel (hotel, countryHotel) {
+    //region = await fetchAsyncGeo(geourl + "&lat=" + hotel.coordinates.latitude + "&lng=" + hotel.coordinates.longitude)
+    //region = region.adminName1
+    saved = countryHotel.regions.some((otherRegion) => {
+        if (otherRegion.name == hotel.region) {
+            otherRegion.hotels.push({ name: hotel.name.content,
+                                      city: hotel.city.content,
+                                      code: hotel.code ,
+                                      image: hotel.images != null ? hotel.images[0].path : "",
+                                      coordinates: hotel.coordinates, 
+                                      region: hotel.region })
+            return true
+        }
+        return false
+    })
+    if (!saved) {
+        countryHotel.regions.push({ name: hotel.region,
+                                    hotels: [{ 
+                                        name: hotel.name.content,
+                                        city: hotel.city.content,
+                                        code: hotel.code ,
+                                        image: hotel.images != null ? hotel.images[0].path : "",
+                                        coordinates: hotel.coordinates,
+                                        region: hotel.region }] })
+    }
+    console.log("Hotel " + hotel.name.content + " pridan do db")  
 }
 
 // Ukladani hotelu do db trva a tato funkce vraci true, pokud byly vsechny hotelu z dane zeme ulozeny do db
@@ -127,11 +161,11 @@ async function checkCountry(countryCode) {
 }
 
 // Sekvencni pripojovani promises
-async function sequenceAdd(promise, arg1, otherPromise) {
+async function sequenceAdd(promise, arg1, arg2, otherPromise) {
     return promise.then(() => {
-        return otherPromise(arg1)
+        return otherPromise(arg1, arg2)
     })
-}
+}*/
 
 // Nejdrive zjisti, zda dany hotel se v db nachazi a pokud ne, hotel zde ulozi
 /*async function saveAllHotels(hotels) {
@@ -154,52 +188,24 @@ async function sequenceAdd(promise, arg1, otherPromise) {
     })
 }*/
 
-async function saveAllHotels(hotels) {
+/*async function saveAllHotels(hotels) {
     promise = Promise.all([])
 
     return CountryHotel.find({ countryCode: hotels[0].countryCode }).exec().then((countryInList) => {
         for (var j = 0; j < hotels.length; j += 1) {
-            saveHotel(hotels[j], countryInList[0])
+            promise = sequenceAdd(promise, hotels[j], countryInList[0], saveHotel)
         }
-
-        return countryInList[0].save().then(() => {
-            return checkCountry(hotels[0].countryCode)
-        }) 
-    })
-}
-
-// Transformace hotelu z fetche na stejny format jako je v databazi
-function transformFetchedHotels(hotels) {
-    resultHotels = { 
-        cities: [],
-        countryCode: hotels[0].countryCode
-    }
-    hotels.map((hotel) => {
-        isCity = resultHotels.cities.some((city) => {
-            if (city.name == hotel.city.name) {
-                city.hotels.push({ name: hotel.name.content,
-                                         city: hotel.city.content,
-                                         code: hotel.code,
-                                         image: hotel.images != null ? hotel.images[0].path : "",
-                                         coordinates: hotel.coordinates })
-                return true
-            }
-            return false
+        return promise.then(() => {
+            return countryInList[0].save().then(() => {
+                return checkCountry(hotels[0].countryCode)
+            }) 
         })
-        if (!isCity) {
-            resultHotels.cities.push({ name: hotel.city.content,
-                                       hotels: [{ 
-                                           name: hotel.name.content,
-                                           city: hotel.city.content,
-                                           code: hotel.code,
-                                           image: hotel.images != null ? hotel.images[0].path : "",
-                                           coordinates: hotel.coordinates  }] }) 
-        }
     })
-    return resultHotels
-}
+}*/
 
-async function saveAll(hotels) {
+
+
+/*async function saveAll(hotels) {
     return isCountryInDb(hotels[0].countryCode).then((isCountry) => {
         if (!isCountry) {
             return saveCountry(hotels[0].countryCode).then(() => {
@@ -214,19 +220,20 @@ async function saveAll(hotels) {
 async function logHotels() {
     return CountryHotel.find().exec().then((countries) => {
         countries.map((country) => {
-            country.cities.map((city) => {
-                city.hotels.map((hotel) => {
+            country.regions.map((region) => {
+                region.hotels.map((hotel) => {
                     console.log(hotel)
                 })
             })
         })
     })
-}
+}*/
 
 var promises = {}
 var fetchedCountriesUuid = {}
 var url = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?fields=name,countryCode,city,coordinates,images&language=ENG&useSecondaryLanguage=false&countryCode='
 var testUrl = 'https://api.test.hotelbeds.com/hotel-api/1.0/status'
+var geourl = "http://api.geonames.org/countrySubdivisionJSON?username=hotelenky"
 
 /*
 Refaktornout to cely
@@ -235,7 +242,7 @@ Returnovat fetch a pokud uz je v databazi, tak databazi
 */
 
 // Fetch z hotelbeds + auth
-async function fetchAsync (newUrl, res) {
+/*async function fetchAsync (newUrl, res) {
     try {
         return fetch(newUrl, { 
             method: 'get', 
@@ -256,7 +263,52 @@ async function fetchAsync (newUrl, res) {
     } catch(error) {
         console.error(error)
     }
-}
+}*/
+
+/*async function fetchAsyncGeo (newUrl) {
+    try {
+        return fetch(newUrl).then((fetchedData) => {
+            fetchedData = fetchedData.json()
+            console.log(fetchedData)
+            return fetchedData
+        })
+    } catch(error) {
+        console.error(error)
+    }
+}*/
+
+// Transformace hotelu z fetche na stejny format jako je v databazi
+/*function transformFetchedHotels(hotels) {
+    resultHotels = { 
+        regions: [],
+        countryCode: hotels[0].countryCode
+    }
+    hotels.map((hotel) => {
+        isRegion = resultHotels.regions.some((region) => {
+            if (region.name == hotel.region) {
+                region.hotels.push({name: hotel.name.content,
+                                    city: hotel.city.content,
+                                    code: hotel.code,
+                                    image: hotel.images != null ? hotel.images[0].path : "",
+                                    coordinates: hotel.coordinates,
+                                    region: hotel.region})
+                return true
+            }
+            return false
+        })
+        if (!isRegion) {
+            resultHotels.regions.push({ name: hotel.region,
+                                       hotels: [{ 
+                                           name: hotel.name.content,
+                                           city: hotel.city.content,
+                                           code: hotel.code,
+                                           image: hotel.images != null ? hotel.images[0].path : "",
+                                           coordinates: hotel.coordinates,  
+                                           region: hotel.region }] }) 
+        }
+    })
+    return resultHotels
+}*/
 
 /*function filterHotels (json, req) {
     var filteredData = json.hotels
@@ -291,7 +343,7 @@ function findHotelsByArea(json, coordinates, radius) {
 }*/
 
 // Zjisteni, kolik hotelu je v dane zemi
-async function fetchTotal (req, res) {
+/*async function fetchTotal (req, res) {
     var urlTotal = 'https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels?language=ENG&useSecondaryLanguage=false&from=1&to=1&countryCode='
     return fetchAsync(urlTotal + req.query.countryCode, res).then((json) => {
         if (json == null) return null
@@ -323,7 +375,6 @@ async function waitForHotels (req, res) {
         if (to == null) return null  
     }
 
-
     var high = 0
     for (var i = from; i < to; i += 1000) {
         if (to - i < 1000 ) {
@@ -335,11 +386,12 @@ async function waitForHotels (req, res) {
         console.log(fetchUrl)
         var newJson = await fetchAsync(fetchUrl)
         if (newJson == null) return null
+
         await sleep(500);  // pro jistotu
         resJson = resJson.concat(newJson.hotels)
-    } 
+    }
     return resJson
-}
+}*/
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //API ENDPOINTS ///////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -358,15 +410,16 @@ app.get('/', (req, res) => res.json({message: "Hello world!"}))
 // example: hotels?countryCode=CZ&from=1&to=3, 
 //          hotels?countryCode=CZ - fetch vseho
 app.get('/hotels', (req, res) => {
+    
     var before = new Date().getTime()
-    isCountryInDb(req.query.countryCode).then((isCountry) => {
+    database.isCountryInDb(req.query.countryCode).then((isCountry) => {
         if (isCountry) {
-            CountryHotel.find({ countryCode: req.query.countryCode }).exec().then((countryInList) => {
+            database.CountryHotel.find({ countryCode: req.query.countryCode }).exec().then((countryInList) => {
                 if (!countryInList[0].allSaved) {
-                    waitForHotels(req, res).then((json) => {
+                    fetch.waitForHotels(req, res).then((json) => {
                         if (json == null) return
                         timeLength = new Date().getTime() - before
-                        res.json({result: "OK", timeLengthInMs: timeLength, json: transformFetchedHotels(json)})
+                        res.json({result: "OK", timeLengthInMs: timeLength, json: fetch.transformFetchedHotels(json)})
                     })
                 } else {
                     timeLength = new Date().getTime() - before
@@ -374,19 +427,20 @@ app.get('/hotels', (req, res) => {
                 }
             })
         } else {
-            waitForHotels(req, res).then((json) => {
+            fetch.waitForHotels(req, res).then((json) => {
                 if (json == null) return
-                saveAll(json)
+                database.saveAll(json)
                 timeLength = new Date().getTime() - before
-                res.json({result: "OK", timeLengthInMs: timeLength, json: transformFetchedHotels(json)})
+                res.json({result: "OK", timeLengthInMs: timeLength, json: fetch.transformFetchedHotels(json)})
             })
         }
     })
+    console.log(file.hello())
 })
 
 // Vypis vsech hotelu v databazi
 app.get('/dblog', (req, res) => {
-    logHotels().then(() => {
+    database.logHotels().then(() => {
         res.json({result: "OK"}) 
     })
 })
